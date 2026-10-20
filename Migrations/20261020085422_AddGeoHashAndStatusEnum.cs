@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Nirmaan.Api.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class AddGeoHashAndStatusEnum : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -80,7 +80,9 @@ namespace Nirmaan.Api.Migrations
                     ResolvedProofImg = table.Column<string>(type: "text", nullable: true),
                     SummaryOfIssue = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
                     ResolvedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    ResolvedBy = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true)
+                    ResolvedBy = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    isResolved = table.Column<bool>(type: "boolean", nullable: false),
+                    GeoHash = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {

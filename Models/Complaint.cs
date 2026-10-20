@@ -54,4 +54,6 @@ public class Complaint
     public DateTime? ResolvedAt { get; set; }
     [MaxLength(100)]
     public string? ResolvedBy { get; set; }
+    public bool isResolved { get; set; }
+    public string? GeoHash { get; set; }
 }

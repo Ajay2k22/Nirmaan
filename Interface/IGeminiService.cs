@@ -1,5 +1,3 @@
-
-
 namespace Nirmaan.Api.Interface;
 
 public class GeminiDetectDto
@@ -10,4 +8,5 @@ public class GeminiDetectDto
 public interface IGeminiService
 {
     Task<(bool success, int statusCode, string message, object? data)> DetectImageAsync(GeminiDetectDto dto);
+    Task<(bool success, int statusCode, string message, object? data)> CompareImagesAsync(string originalBase64, string proofBase64);
 }

@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Nirmaan.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261019181533_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20261020085422_AddGeoHashAndStatusEnum")]
+    partial class AddGeoHashAndStatusEnum
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -69,6 +69,9 @@ namespace Nirmaan.Api.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<string>("GeoHash")
+                        .HasColumnType("text");
 
                     b.Property<double>("Latitude")
                         .HasColumnType("double precision");
@@ -128,6 +131,9 @@ namespace Nirmaan.Api.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("isResolved")
+                        .HasColumnType("boolean");
 
                     b.HasKey("ComplaintId");
 

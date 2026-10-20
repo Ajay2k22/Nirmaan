@@ -22,6 +22,12 @@ public class ResolveComplaintFormDto
     public string Status { get; set; } = "resolved";
 }
 
+public class RejectComplaintDto
+{
+    public string ComplaintId { get; set; } = "";
+    public string? Reason { get; set; }  // optional: why rejected
+}
+
 public interface IAdminService
 {
     Task<(bool success, int statusCode, string message, object? data)> RegisterAsync(AdminRegDto dto);
@@ -31,4 +37,5 @@ public interface IAdminService
     Task<(bool success, int statusCode, string message, object? data)> UpdateStatusAsync(UpdateStatusDto dto);
     Task<(bool success, int statusCode, string message, object? data)> GetAllMasterDataAsync();
     Task<(bool success, int statusCode, string message, object? data)> ResolveComplaintAsync(ResolveComplaintDto dto);
+    Task<(bool success, int statusCode, string message, object? data)> RejectComplaintAsync(RejectComplaintDto dto);
 }

@@ -67,6 +67,9 @@ namespace Nirmaan.Api.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<string>("GeoHash")
+                        .HasColumnType("text");
+
                     b.Property<double>("Latitude")
                         .HasColumnType("double precision");
 
@@ -125,6 +128,9 @@ namespace Nirmaan.Api.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("isResolved")
+                        .HasColumnType("boolean");
 
                     b.HasKey("ComplaintId");
 

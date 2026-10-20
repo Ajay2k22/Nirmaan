@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Nirmaan.Api.Data;
 using Nirmaan.Api.Interface;
 using Nirmaan.Api.Models;
+using Nirmaan.Api.Utils; // NEW: Import your GeoUtils
+using Nirmaan.Api.Enums; // your enum namespace
 
 namespace Nirmaan.Api.Services;
 
@@ -29,6 +31,51 @@ public class ComplaintService : IComplaintService
             if (string.IsNullOrWhiteSpace(dto.Summary))
                 return (false, 400, "Summary is required", null);
 
+            // --- NEW: DEDUPLICATION WITH GEO-HASH ---
+            // 1. Create hash from lat/lng (4 decimal = ~11m accuracy)
+            var newGeoHash = GeoUtils.ToGeoHash(dto.Latitude, dto.Longitude);
+            const double DEDUP_RANGE_METERS = 50; // Change to 30/100 as you need
+
+            // 2. Fast DB check: same cell + same MNC/DEPT + not resolved
+            var sameCellExists = await _db.Complaints
+                .AnyAsync(c => c.GeoHash == newGeoHash
+                            && c.Status != ComplaintStatus.RESOLVED.ToString()
+                            && c.Status != ComplaintStatus.REJECTED.ToString()
+                            && c.MNC == dto.MncCode
+                            && c.DEPT == dto.DeptCode);
+
+            if (sameCellExists)
+            {
+                _logger.LogWarning("Duplicate blocked by GeoHash {GeoHash}", newGeoHash);
+                return (false, 409, $"This location already has an active complaint within {DEDUP_RANGE_METERS}m. Our team is on it.", null);
+            }
+
+            // 3. Precise check: get candidates in ~200m box, then exact Haversine distance
+            var nearbyCandidates = await _db.Complaints
+                .Where(c => c.Status != ComplaintStatus.RESOLVED.ToString()
+                         && c.Status != ComplaintStatus.REJECTED.ToString()
+                         && c.MNC == dto.MncCode
+                         && c.DEPT == dto.DeptCode
+                         && c.Latitude >= dto.Latitude - 0.002
+                         && c.Latitude <= dto.Latitude + 0.002
+                         && c.Longitude >= dto.Longitude - 0.002
+                         && c.Longitude <= dto.Longitude + 0.002)
+                .ToListAsync();
+
+            foreach (var existing in nearbyCandidates)
+            {
+                var distance = GeoUtils.GetDistanceInMeters(
+                    dto.Latitude, dto.Longitude,
+                    existing.Latitude, existing.Longitude);
+
+                if (distance <= DEDUP_RANGE_METERS)
+                {
+                    _logger.LogWarning("Duplicate blocked. Distance {Distance}m from {Id}", distance, existing.ComplaintId);
+                    return (false, 409, $"Duplicate complaint. An active complaint (ID: {existing.ComplaintId}) already exists within {Math.Round(distance)}m.", null);
+                }
+            }
+            // --- DEDUPLICATION END ---
+
             var complaint = new Complaint
             {
                 ComplaintId = Guid.NewGuid().ToString(),
@@ -38,10 +85,11 @@ public class ComplaintService : IComplaintService
                 Severity = dto.Severity ?? "medium",
                 Longitude = dto.Longitude,
                 Latitude = dto.Latitude,
-                Address = dto.Address ?? "", // NEW
+                GeoHash = newGeoHash, // NEW: Save hash for future checks
+                Address = dto.Address ?? "",
                 Summary = dto.Summary,
                 Reason = dto.Reason,
-                Status = "pending",
+                Status = ComplaintStatus.PENDING.ToString(),
                 UserId = dto.UserId ?? "anonymous",
                 CreatedAt = DateTime.UtcNow
             };
@@ -108,5 +156,4 @@ public class ComplaintService : IComplaintService
             return (false, 500, "Internal server error", new { error = ex.Message });
         }
     }
-
 }

@@ -63,7 +63,7 @@ public class AdminController : ControllerBase
     {
         try
         {
-            
+
             var result = await _adminService.GetAllComplaintsAsync(mnc_code, dept_code);
             if (!result.success)
                 return StatusCode(result.statusCode, new { statusCode = result.statusCode, message = result.message });
@@ -201,5 +201,18 @@ public class AdminController : ControllerBase
         {
             return StatusCode(500, new { statusCode = 500, message = ex.Message });
         }
+    }
+
+    [HttpPost("rejectComplaint")]
+    [Authorize(Policy = "IsAdmin")]
+    public async Task<IActionResult> RejectComplaint([FromBody] RejectComplaintDto dto)
+    {
+        var result = await _adminService.RejectComplaintAsync(dto);
+        return StatusCode(result.statusCode, new
+        {
+            statusCode = result.statusCode,
+            message = result.message,
+            data = result.data
+        });
     }
 }

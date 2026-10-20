@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Nirmaan.Api.Data;
 using Nirmaan.Api.Interface;
 using Nirmaan.Api.Models;
+using Nirmaan.Api.Enums;
+
 
 namespace Nirmaan.Api.Services;
 
@@ -125,7 +127,14 @@ public class AdminService : IAdminService
             if (complaint == null)
                 return (false, 404, "Complaint not found", null);
 
-            complaint.Status = dto.Status;
+            if (Enum.TryParse<ComplaintStatus>(dto.Status, true, out var parsedStatus))
+            {
+                complaint.Status = parsedStatus.ToString(); // PENDING, IN_PROGRESS, RESOLVED, REJECTED
+            }
+            else
+            {
+                complaint.Status = dto.Status; // fallback if client sends string
+            }
             await _db.SaveChangesAsync();
 
             return (true, 200, "Complaint status updated", new { status = complaint.Status });
@@ -164,15 +173,15 @@ public class AdminService : IAdminService
 
             // FIX: Use _db.Complaints NOT _complaintService.Complaints
             var complaint = await _db.Complaints.FirstOrDefaultAsync(c => c.ComplaintId == dto.ComplaintId);
-            
+
             if (complaint == null)
                 return (false, 404, "Complaint not found", null);
 
-            if (complaint.Status == "resolved")
+            if (complaint.Status == ComplaintStatus.RESOLVED.ToString())
                 return (false, 400, "Complaint already resolved", new { status = complaint.Status });
 
             // Update as per your API: { proof_img, summary_of_issue, status }
-            complaint.Status = string.IsNullOrWhiteSpace(dto.Status) ? "resolved" : dto.Status.ToLower();
+            complaint.Status = string.IsNullOrWhiteSpace(dto.Status) ? ComplaintStatus.RESOLVED.ToString() : dto.Status.ToLower();
             complaint.ResolvedProofImg = dto.Proof_Img;
             complaint.SummaryOfIssue = dto.Summary_Of_Issue;
             complaint.ResolvedAt = DateTime.UtcNow;
@@ -189,6 +198,44 @@ public class AdminService : IAdminService
         {
             _logger.LogError(ex, "Error in ResolveComplaint {Id}", dto.ComplaintId);
             return (false, 500, "Failed to resolve complaint", new { error = ex.Message });
+        }
+    }
+
+    public async Task<(bool success, int statusCode, string message, object? data)> RejectComplaintAsync(RejectComplaintDto dto)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(dto.ComplaintId))
+                return (false, 400, "complaintId is required", null);
+
+            var complaint = await _db.Complaints.FirstOrDefaultAsync(c => c.ComplaintId == dto.ComplaintId);
+            if (complaint == null)
+                return (false, 404, "Complaint not found", null);
+
+            if (complaint.Status == ComplaintStatus.RESOLVED.ToString())
+                return (false, 400, "Complaint already resolved, cannot reject", new { status = complaint.Status });
+
+            if (complaint.Status == ComplaintStatus.REJECTED.ToString())
+                return (false, 400, "Complaint already rejected", new { status = complaint.Status });
+
+            complaint.Status = ComplaintStatus.REJECTED.ToString();
+            if (!string.IsNullOrWhiteSpace(dto.Reason))
+                complaint.Reason = dto.Reason; // save rejection reason
+
+            await _db.SaveChangesAsync();
+
+            _logger.LogInformation("Complaint {Id} rejected. Reason: {Reason}", dto.ComplaintId, dto.Reason);
+
+            return (true, 200, "Complaint rejected", new
+            {
+                status = complaint.Status,
+                reason = complaint.Reason
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in RejectComplaint {Id}", dto.ComplaintId);
+            return (false, 500, "Failed to reject complaint", new { error = ex.Message });
         }
     }
 }
