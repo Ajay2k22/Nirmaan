@@ -132,7 +132,9 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins("http://localhost:8100", "http://localhost:4201", "http://192.168.31.71:8100",
          "https://nirmaan-client.vercel.app",
-                "https://nirmaan-admin.vercel.app")
+                "https://nirmaan-admin.vercel.app",
+                "https://nirmaan-admin-xi.vercel.app"
+                )
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
