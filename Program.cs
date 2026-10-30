@@ -132,7 +132,8 @@ builder.Services.AddCors(options =>
                 "http://192.168.31.71:8100",
                 "https://nirmaan-client.vercel.app",
                 "https://nirmaan-admin.vercel.app",
-                "https://nirmaan-admin-xi.vercel.app"
+                "https://nirmaan-admin-xi.vercel.app",
+            "https://nirmaan-client-olive.vercel.app"
               )
               .AllowAnyHeader()
               .AllowAnyMethod()
