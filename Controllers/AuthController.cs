@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization; 
+using Microsoft.AspNetCore.Authorization;
 using Nirmaan.Api.Interface;
 
 namespace Nirmaan.Api.Controllers;
@@ -48,7 +48,7 @@ public class AuthController : ControllerBase
                 return StatusCode(result.statusCode, new { statusCode = result.statusCode, message = result.message });
 
             var data = (dynamic)result.data!;
-            return Ok(new { statusCode = result.statusCode, message = result.message, token = data.token, userId = data.userId, isCitizen = data.isCitizen });
+            return Ok(new { statusCode = result.statusCode, message = result.message, token = data.token, userId = data.userId, isCitizen = data.isCitizen, firstName = data.FirstName });
         }
         catch (Exception ex)
         {

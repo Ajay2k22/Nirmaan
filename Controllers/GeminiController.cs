@@ -43,7 +43,11 @@ public class GeminiController : ControllerBase
                 return StatusCode(result.statusCode, new { statusCode = result.statusCode, message = result.message, error = result.data });
 
             var data = (dynamic)result.data!;
-            return Ok(new { statusCode = result.statusCode, message = result.message, severity = data.severity, reason = data.reason });
+            return Ok(new { statusCode = result.statusCode, message = result.message, severity = data.severity, reason = data.reason, category = data.category });
+            // // return Ok(new { statusCode = 200, message = "The road surface has multiple potholes filled with water, which pose a safety hazard to vehicles and pedestrians.", severity = "HIGH", reason = "HIGH", category = "ROADS" });
+            // // return Ok(new { statusCode = 200, message = "The road surface has multiple potholes filled with water, which pose a safety hazard to vehicles and pedestrians.", severity = "HIGH", reason = "HIGH", category = "ROADS" });
+            // return Ok(new { statusCode = 200, message = "Garbage bags are overflowing on roadside causing foul smell and health hazard.", severity = "LOW", reason = "Garbage overflow causing health hazard", category = "ENCROACHMENT" });
+
         }
         catch (Exception ex)
         {

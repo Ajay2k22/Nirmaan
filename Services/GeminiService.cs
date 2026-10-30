@@ -129,16 +129,21 @@ Return JSON only: {""status"":""RESOLVED""/""REJECTED"",""mssg"":""short"",""isF
 
             var apiKey = _config["Gemini:ApiKey"];
             if (string.IsNullOrEmpty(apiKey) || apiKey.Contains("YOUR"))
-                return (true, 200, "Demo", new { severity = "high", reason = "Pothole detected - requires immediate attention" });
+                return (true, 200, "Demo", new
+                {
+                    severity = "HIGH",
+                    category = "ROADS",
+                    reason = "Pothole detected - requires immediate attention",
+                    message = "The road surface has multiple potholes filled with water, which pose a safety hazard to vehicles and pedestrians."
+                });
 
-            var base64Data = CompressBase64(dto.Photo, 512); // Even smaller for detect - low token
+            var base64Data = CompressBase64(dto.Photo, 512);
             if (string.IsNullOrEmpty(base64Data))
                 return (false, 400, "Invalid base64 photo format", null);
 
             var client = _httpClientFactory.CreateClient();
             string? lastError = null;
 
-            // SAME LOW TOKEN MODELS AS CompareImages
             foreach (var model in LowTokenModels)
             {
                 try
@@ -149,16 +154,41 @@ Return JSON only: {""status"":""RESOLVED""/""REJECTED"",""mssg"":""short"",""isF
                     {
                         contents = new[]
                         {
-                            new
+                        new
+                        {
+                            parts = new object[]
                             {
-                                parts = new object[]
-                                {
-                                    new { text = "Civic complaint analyzer. Analyze image: pothole, garbage, streetlight, water leak etc? Return JSON only: {\"severity\":\"low/medium/high\",\"reason\":\"1 sentence\"}" },
-                                    new { inline_data = new { mime_type = "image/jpeg", data = base64Data } }
-                                }
+                                new { text = @"You are civic complaint analyzer for Indian municipal corporation.
+Analyze the image carefully and classify.
+
+Rules:
+1. severity MUST be one of: HIGH, LOW, MEDIUM (UPPERCASE ONLY)
+2. category MUST be one of: ROADS, GARBAGE_WASTE, DRAINAGE_SEWAGE, STREET_LIGHT, WATER_SUPPLY, PUBLIC_TOILET, ENCROACHMENT, PARK_GARDEN, TRAFFIC_SIGNAL, STRAY_ANIMALS, NOISE_POLLUTION, OTHER
+   - ROADS = pothole, road damage, broken road
+   - GARBAGE_WASTE = garbage, waste, overflowing dustbin
+   - DRAINAGE_SEWAGE = drainage, sewage, manhole, waterlogging
+   - STREET_LIGHT = street light, lamp post
+   - WATER_SUPPLY = water leak, pipeline
+   - PUBLIC_TOILET = toilet
+   - ENCROACHMENT = illegal construction, footpath blocked
+   - PARK_GARDEN = park, garden, tree
+   - TRAFFIC_SIGNAL = traffic light, signal
+   - STRAY_ANIMALS = dogs, cattle, animals
+   - NOISE_POLLUTION = loudspeaker, noise
+   - OTHER = anything else
+3. Return JSON ONLY, no markdown, no explanation, in this exact format:
+{""severity"":""HIGH"",""category"":""ROADS"",""reason"":""1 sentence short reason"",""message"":""Detailed description of issue in 1-2 sentences for complaint title""}
+
+Examples:
+{""severity"":""HIGH"",""category"":""ROADS"",""reason"":""Multiple potholes pose safety risk"",""message"":""The road surface has multiple potholes filled with water, which pose a safety hazard to vehicles and pedestrians.""}
+{""severity"":""LOW"",""category"":""GARBAGE_WASTE"",""reason"":""Garbage overflow causing foul smell"",""message"":""Garbage bags are overflowing on roadside causing foul smell and health hazard.""}
+{""severity"":""HIGH"",""category"":""DRAINAGE_SEWAGE"",""reason"":""Sewage overflow on street"",""message"":""Drainage water is overflowing and sewage is leaking onto the street.""}
+" },
+                                new { inline_data = new { mime_type = "image/jpeg", data = base64Data } }
                             }
-                        },
-                        generationConfig = new { temperature = 0.2, maxOutputTokens = 150, response_mime_type = "application/json", thinkingConfig = new { thinkingBudget = 0 } }
+                        }
+                    },
+                        generationConfig = new { temperature = 0.2, maxOutputTokens = 250, response_mime_type = "application/json", thinkingConfig = new { thinkingBudget = 0 } }
                     };
 
                     var response = await client.PostAsync(url, new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json"));
@@ -186,10 +216,20 @@ Return JSON only: {""status"":""RESOLVED""/""REJECTED"",""mssg"":""short"",""isF
                     _logger.LogInformation("Detect Gemini {Model} success: {Text}", model, cleanText);
 
                     using var innerDoc = JsonDocument.Parse(cleanText);
-                    var severity = innerDoc.RootElement.TryGetProperty("severity", out var sevProp) ? sevProp.GetString() ?? "medium" : "medium";
+                    var severityRaw = innerDoc.RootElement.TryGetProperty("severity", out var sevProp) ? sevProp.GetString() ?? "MEDIUM" : "MEDIUM";
+                    var categoryRaw = innerDoc.RootElement.TryGetProperty("category", out var catProp) ? catProp.GetString() ?? "OTHER" : "OTHER";
                     var reason = innerDoc.RootElement.TryGetProperty("reason", out var reasonProp) ? reasonProp.GetString() ?? "Civic issue detected" : cleanText;
+                    var message = innerDoc.RootElement.TryGetProperty("message", out var msgProp) ? msgProp.GetString() ?? reason : reason;
 
-                    return (true, 200, "Image analyzed", new { severity = severity.ToLower(), reason, modelUsed = model, tokenOptimized = true });
+                    // Enforce allowed values
+                    var severity = severityRaw.ToUpper().Trim();
+                    if (severity != "HIGH" && severity != "LOW" && severity != "MEDIUM") severity = "MEDIUM";
+
+                    var allowedCategories = new[] { "ROADS", "GARBAGE_WASTE", "DRAINAGE_SEWAGE", "STREET_LIGHT", "WATER_SUPPLY", "PUBLIC_TOILET", "ENCROACHMENT", "PARK_GARDEN", "TRAFFIC_SIGNAL", "STRAY_ANIMALS", "NOISE_POLLUTION", "OTHER" };
+                    var category = categoryRaw.ToUpper().Trim();
+                    if (!allowedCategories.Contains(category)) category = "OTHER";
+
+                    return (true, 200, message, new { severity = severity, category = category, reason = reason, message = message, modelUsed = model, tokenOptimized = true });
                 }
                 catch (Exception ex)
                 {
@@ -199,14 +239,13 @@ Return JSON only: {""status"":""RESOLVED""/""REJECTED"",""mssg"":""short"",""isF
                 }
             }
 
-            // Fallback if all models fail
             _logger.LogError("All detect models failed: {Error}", lastError);
-            return (true, 200, "Fallback detection (All models failed)", new { severity = "medium", reason = "Civic issue detected - needs inspection", error = lastError });
+            return (true, 200, "Fallback detection (All models failed)", new { severity = "MEDIUM", category = "OTHER", reason = "Civic issue detected - needs inspection", message = "Civic issue detected - needs inspection", error = lastError });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "DetectImage error");
-            return (true, 200, "Fallback detection", new { severity = "medium", reason = "Civic issue detected" });
+            return (true, 200, "Fallback detection", new { severity = "MEDIUM", category = "OTHER", reason = "Civic issue detected", message = "Civic issue detected" });
         }
     }
 }

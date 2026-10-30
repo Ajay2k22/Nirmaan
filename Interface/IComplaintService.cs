@@ -3,6 +3,10 @@ namespace Nirmaan.Api.Interface;
 
 public class CreateComplaintDto
 {
+
+    public string Title { get; set; } = "";
+    public string Description { get; set; } = "";
+    public string Category { get; set; } = "";
     public string Photo { get; set; } = "";
     public string MncCode { get; set; } = "";
     public string DeptCode { get; set; } = "";
@@ -20,5 +24,5 @@ public interface IComplaintService
     Task<(bool success, int statusCode, string message, object? data)> CreateAsync(CreateComplaintDto dto);
     Task<(bool success, int statusCode, string message, object? data)> GetByUserIdAsync(string userId);
     Task<(bool success, int statusCode, string message, object? data)> GetByUserAndComplaintIdAsync(string userId, string complaintId);
-    
+
 }

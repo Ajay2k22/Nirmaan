@@ -39,10 +39,11 @@ public class ComplaintController : ControllerBase
 
     [HttpGet("getComplaintByUserId")]
     [Authorize(Policy = "IsCitizen")]
-    public async Task<IActionResult> GetComplaintByUserId([FromQuery] string userId)
+    public async Task<IActionResult> GetComplaintByUserId()
     {
         try
         {
+            var userId = User.FindFirst("userId")?.Value;
             var result = await _complaintService.GetByUserIdAsync(userId);
             if (!result.success)
                 return StatusCode(result.statusCode, new { statusCode = result.statusCode, message = result.message });
@@ -59,10 +60,11 @@ public class ComplaintController : ControllerBase
 
     [HttpGet("getComplaintByUserAndComplaintId")]
     [Authorize(Policy = "IsCitizen")]
-    public async Task<IActionResult> GetComplaintByUserAndComplaintId([FromQuery] string userId, [FromQuery] string complaintId)
+    public async Task<IActionResult> GetComplaintByUserAndComplaintId([FromQuery] string complaintId)
     {
         try
         {
+            var userId = User.FindFirst("userId")?.Value;
             var result = await _complaintService.GetByUserAndComplaintIdAsync(userId, complaintId);
             if (!result.success)
                 return StatusCode(result.statusCode, new { statusCode = result.statusCode, message = result.message });

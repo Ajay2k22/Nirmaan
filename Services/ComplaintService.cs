@@ -24,6 +24,10 @@ public class ComplaintService : IComplaintService
         {
             if (string.IsNullOrWhiteSpace(dto.Photo))
                 return (false, 400, "Photo is required", null);
+            if (string.IsNullOrWhiteSpace(dto.Title))
+                return (false, 400, "Title is required", null);
+            if (string.IsNullOrWhiteSpace(dto.Description))
+                return (false, 400, "Description is required", null);
 
             if (string.IsNullOrWhiteSpace(dto.MncCode) || string.IsNullOrWhiteSpace(dto.DeptCode))
                 return (false, 400, "mnc_code and dept_code are required", null);
@@ -82,6 +86,8 @@ public class ComplaintService : IComplaintService
                 PhotoBase64 = dto.Photo,
                 MNC = dto.MncCode,
                 DEPT = dto.DeptCode,
+                Title = dto.Title,
+                Description = dto.Description,
                 Severity = dto.Severity ?? "medium",
                 Longitude = dto.Longitude,
                 Latitude = dto.Latitude,
@@ -89,6 +95,7 @@ public class ComplaintService : IComplaintService
                 Address = dto.Address ?? "",
                 Summary = dto.Summary,
                 Reason = dto.Reason,
+                Category = dto.Category,
                 Status = ComplaintStatus.PENDING.ToString(),
                 UserId = dto.UserId ?? "anonymous",
                 CreatedAt = DateTime.UtcNow
@@ -121,7 +128,7 @@ public class ComplaintService : IComplaintService
             var list = await _db.Complaints
                 .Where(c => c.UserId == userId)
                 .OrderByDescending(c => c.CreatedAt)
-                .Select(c => new { c.ComplaintId, photo = c.PhotoBase64, c.Status })
+                .Select(c => new { c.ComplaintId, c.Title, c.Description, c.Category, photo = c.PhotoBase64, c.Status, c.Address, c.Severity, c.Summary, c.Longitude, c.Latitude, c.MNC, c.DEPT, c.Reason })
                 .ToListAsync();
 
             return (true, 200, "Complaints fetched", new { count = list.Count, data = list });

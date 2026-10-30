@@ -74,7 +74,7 @@ public class AuthService : IAuthService
                 return (false, 401, "Invalid credentials", null);
 
             var token = _jwtService.GenerateCitizenToken(user.UserId, user.Email);
-            return (true, 200, "Login successful", new { token, userId = user.UserId, isCitizen = user.IsCitizen });
+            return (true, 200, "Login successful", new { token, userId = user.UserId, isCitizen = user.IsCitizen, user.FirstName });
         }
         catch (Exception ex)
         {

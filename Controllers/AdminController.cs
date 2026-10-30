@@ -17,22 +17,53 @@ public class AdminController : ControllerBase
         _logger = logger;
     }
 
+    // ========= BULK REGISTER - NOW ACCEPTS LIST =========
     [HttpPost("register")]
     [AllowAnonymous]
-    public async Task<IActionResult> Register([FromBody] AdminRegDto dto)
+    public async Task<IActionResult> Register([FromBody] List<AdminRegDto> dtos)
     {
         try
         {
-            var result = await _adminService.RegisterAsync(dto);
+            if (dtos == null || dtos.Count == 0)
+                return BadRequest(new { statusCode = 400, message = "Payload list is empty" });
+
+            var result = await _adminService.RegisterAsync(dtos);
+
             if (!result.success)
                 return StatusCode(result.statusCode, new { statusCode = result.statusCode, message = result.message, error = result.data });
 
-            var data = (dynamic)result.data!;
-            return Ok(new { statusCode = result.statusCode, message = result.message, token = data.token, isCitizen = data.isCitizen });
+            // result.data contains insertedCount, skippedCount, inserted, skipped
+            return Ok(new
+            {
+                statusCode = result.statusCode,
+                message = result.message,
+                data = result.data
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled error in Admin Register");
+            _logger.LogError(ex, "Unhandled error in Bulk Admin Register");
+            return StatusCode(500, new { statusCode = 500, message = "Internal server error", error = ex.Message });
+        }
+    }
+
+    // Optional: Single register also works via list (if you send single object, wrap it in list)
+    // If you want to support BOTH single object and list, use this extra endpoint
+    [HttpPost("register-single")]
+    [AllowAnonymous]
+    public async Task<IActionResult> RegisterSingle([FromBody] AdminRegDto dto)
+    {
+        try
+        {
+            var result = await _adminService.RegisterAsync(new List<AdminRegDto> { dto });
+            if (!result.success)
+                return StatusCode(result.statusCode, new { statusCode = result.statusCode, message = result.message, error = result.data });
+
+            return Ok(new { statusCode = result.statusCode, message = result.message, data = result.data });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unhandled error in Single Admin Register");
             return StatusCode(500, new { statusCode = 500, message = "Internal server error", error = ex.Message });
         }
     }
@@ -63,7 +94,6 @@ public class AdminController : ControllerBase
     {
         try
         {
-
             var result = await _adminService.GetAllComplaintsAsync(mnc_code, dept_code);
             if (!result.success)
                 return StatusCode(result.statusCode, new { statusCode = result.statusCode, message = result.message });
@@ -136,38 +166,8 @@ public class AdminController : ControllerBase
             return StatusCode(500, new { statusCode = 500, message = "Internal server error", error = ex.Message });
         }
     }
-    // [HttpPost("resolveAsync")]
-    // [Authorize]
-    // public async Task<IActionResult> Resolve([FromBody] ResolveComplaintDto dto)
-    // {
-    //     try
-    //     {
-    //         // Validation as per your API spec
-    //         if (string.IsNullOrEmpty(dto.ComplaintId))
-    //             return BadRequest(new { statusCode = 400, message = "complaintId required" });
 
-    //         if (string.IsNullOrEmpty(dto.Proof_Img))
-    //             return BadRequest(new { statusCode = 400, message = "proof_img required" });
 
-    //         if (string.IsNullOrEmpty(dto.Summary_Of_Issue))
-    //             return BadRequest(new { statusCode = 400, message = "summary_of_issue required" });
-
-    //         var result = await _adminService.ResolveComplaintAsync(dto);
-
-    //         if (!result.success)
-    //             return StatusCode(result.statusCode, new { statusCode = result.statusCode, message = result.message });
-
-    //         // Response :- { status } as per your diagram
-    //         return Ok(new { status = dto.Status });
-    //     }
-    //     catch (Exception ex)
-    //     {
-    //         _logger.LogError(ex, "Error in resolve");
-    //         return StatusCode(500, new { statusCode = 500, message = ex.Message });
-    //     }
-    // }
-
-    // Extra: For Postman file upload testing (same API but with file)
     [HttpPost("resolve")]
     [Consumes("multipart/form-data")]
     [Authorize(Policy = "IsAdmin")]
@@ -175,10 +175,12 @@ public class AdminController : ControllerBase
     {
         try
         {
+            if (formDto.Proof_Img == null)
+                return BadRequest(new { statusCode = 400, message = "Proof image required", status = "REJECTED", mssg = "Proof missing", reason = "Proof missing", isFake = false, confidence = "low", complaintId = formDto.ComplaintId });
+
             string base64 = "";
-            if (formDto.Proof_Img != null)
+            using (var ms = new MemoryStream())
             {
-                using var ms = new MemoryStream();
                 await formDto.Proof_Img.CopyToAsync(ms);
                 base64 = Convert.ToBase64String(ms.ToArray());
             }
@@ -192,16 +194,70 @@ public class AdminController : ControllerBase
             };
 
             var result = await _adminService.ResolveComplaintAsync(dto);
-            if (!result.success)
-                return StatusCode(result.statusCode, new { statusCode = result.statusCode, message = result.message });
 
-            return Ok(new { status = dto.Status });
+            // ✅ FIX: Handle null data safely
+            if (result.data == null)
+            {
+                return StatusCode(result.statusCode, new
+                {
+                    statusCode = result.statusCode,
+                    message = result.message,
+                    status = "REJECTED",
+                    mssg = result.message,
+                    reason = result.message,
+                    isFake = false,
+                    confidence = "low",
+                    complaintId = formDto.ComplaintId
+                });
+            }
+
+            var json = System.Text.Json.JsonSerializer.Serialize(result.data);
+            var doc = System.Text.Json.JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            // If ai.data is already flat {status,mssg,...} not wrapped
+            string status = "REJECTED", mssg = result.message, reason = result.message, confidence = "low";
+            bool isFake = false;
+
+            if (root.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+                if (root.TryGetProperty("verification", out var ver) && ver.ValueKind == System.Text.Json.JsonValueKind.Object)
+                {
+                    status = ver.TryGetProperty("status", out var s) ? s.GetString() ?? status : status;
+                    mssg = ver.TryGetProperty("mssg", out var mm) ? mm.GetString() ?? mssg : mssg;
+                    reason = ver.TryGetProperty("reason", out var rr) ? rr.GetString() ?? reason : reason;
+                    confidence = ver.TryGetProperty("confidence", out var cc) ? cc.GetString() ?? confidence : confidence;
+                    isFake = ver.TryGetProperty("isFake", out var ff) && ff.ValueKind == System.Text.Json.JsonValueKind.True;
+                }
+                else
+                {
+                    // Direct object {status,mssg,reason,isFake,confidence}
+                    status = root.TryGetProperty("status", out var s2) ? s2.GetString() ?? status : status;
+                    mssg = root.TryGetProperty("mssg", out var m2) ? m2.GetString() ?? mssg : mssg;
+                    reason = root.TryGetProperty("reason", out var r2) ? r2.GetString() ?? reason : reason;
+                    confidence = root.TryGetProperty("confidence", out var c2) ? c2.GetString() ?? confidence : confidence;
+                    isFake = root.TryGetProperty("isFake", out var f2) && f2.ValueKind == System.Text.Json.JsonValueKind.True;
+                }
+            }
+
+            return StatusCode(result.statusCode, new
+            {
+                statusCode = result.statusCode,
+                message = result.message,
+                status,
+                mssg,
+                reason,
+                isFake,
+                confidence,
+                complaintId = formDto.ComplaintId
+            });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { statusCode = 500, message = ex.Message });
+            return StatusCode(500, new { statusCode = 500, message = ex.Message, status = "REJECTED", mssg = ex.Message, reason = ex.Message, isFake = false, confidence = "low", complaintId = formDto.ComplaintId });
         }
     }
+
 
     [HttpPost("rejectComplaint")]
     [Authorize(Policy = "IsAdmin")]

@@ -59,6 +59,11 @@ namespace Nirmaan.Api.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -67,8 +72,16 @@ namespace Nirmaan.Api.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<string>("GeoHash")
                         .HasColumnType("text");
+
+                    b.Property<bool>("IsResolved")
+                        .HasColumnType("boolean");
 
                     b.Property<double>("Latitude")
                         .HasColumnType("double precision");
@@ -124,13 +137,15 @@ namespace Nirmaan.Api.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<string>("UserId")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
-
-                    b.Property<bool>("isResolved")
-                        .HasColumnType("boolean");
 
                     b.HasKey("ComplaintId");
 
