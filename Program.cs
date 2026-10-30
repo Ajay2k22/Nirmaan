@@ -130,7 +130,8 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngular", policy =>
     {
-        policy.WithOrigins("http://localhost:8100", "http://localhost:4201", "http://192.168.31.71:8100")
+        policy.WithOrigins("http://localhost:8100", "http://localhost:4201", "http://192.168.31.71:8100", "https://nirmaan-client.vercel.app",
+                "https://nirmaan-admin.vercel.app")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
