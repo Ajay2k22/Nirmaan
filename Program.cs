@@ -7,7 +7,6 @@ using Nirmaan.Api.Data;
 using Nirmaan.Api.Interface;
 using Nirmaan.Api.Middleware;
 using Nirmaan.Api.Services;
-using System.Security.Claims;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -33,8 +32,7 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.MapInboundClaims = false; // IMPORTANT: Keeps "role" claim as "role", fixes 403
-
+    options.MapInboundClaims = false;
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
@@ -81,14 +79,12 @@ builder.Services.AddAuthorization(options =>
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
         .Build();
-
     options.AddPolicy("IsAdmin", policy =>
         policy.RequireAssertion(ctx =>
             ctx.User.HasClaim(c => c.Type == "role" && c.Value == "admin") ||
             ctx.User.IsInRole("admin") ||
             ctx.User.HasClaim(c => c.Type == "isCitizen" && c.Value == "false")
         ));
-
     options.AddPolicy("IsCitizen", policy =>
         policy.RequireAssertion(ctx =>
             ctx.User.HasClaim(c => c.Type == "role" && c.Value == "citizen") ||
@@ -130,11 +126,14 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngular", policy =>
     {
-        policy.WithOrigins("http://localhost:8100", "http://localhost:4201", "http://192.168.31.71:8100",
-         "https://nirmaan-client.vercel.app",
+        policy.WithOrigins(
+                "http://localhost:8100",
+                "http://localhost:4201",
+                "http://192.168.31.71:8100",
+                "https://nirmaan-client.vercel.app",
                 "https://nirmaan-admin.vercel.app",
                 "https://nirmaan-admin-xi.vercel.app"
-                )
+              )
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -143,15 +142,14 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+var port = Environment.GetEnvironmentVariable("PORT") ?? "10000";
+app.Urls.Add($"http://+:{port}");
 
-app.UseMiddleware<GlobalExceptionMiddleware>();
+app.UseSwagger();
+app.UseSwaggerUI();
+
 app.UseCors("AllowAngular");
+app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
