@@ -239,7 +239,7 @@ public class AdminService : IAdminService
                 return (false, 400, el.TryGetProperty("reason", out var r) ? r.GetString() : "Not resolved", ai.data);
 
             complaint.Status = ComplaintStatus.RESOLVED.ToString();
-            complaint.ResolvedProofImg = dto.Proof_Img;
+            complaint.ResolvedProofImg = "data:image/jpeg;base64," + dto.Proof_Img;
             complaint.SummaryOfIssue = dto.Summary_Of_Issue;
             complaint.ResolvedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
