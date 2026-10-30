@@ -149,7 +149,7 @@ public class ComplaintService : IComplaintService
 
             var complaint = await _db.Complaints
                 .Where(c => c.UserId == userId && c.ComplaintId == complaintId)
-                .Select(c => new { c.ComplaintId, photo = c.PhotoBase64, c.Status, c.Address, c.Severity, c.Summary, c.Longitude, c.Latitude, c.MNC, c.DEPT, c.Reason, c.Title, c.Description, c.Category, c.CreatedAt })
+                .Select(c => new { c.ComplaintId, photo = c.PhotoBase64, c.Status, c.Address, c.Severity, c.Summary, c.Longitude, c.Latitude, c.MNC, c.DEPT, c.Reason, c.Title, c.Description, c.Category, c.CreatedAt, c.ResolvedProofImg })
                 .FirstOrDefaultAsync();
 
             if (complaint == null)
